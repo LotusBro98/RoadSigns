@@ -91,20 +91,36 @@ void sliceCircle(cv::Mat& image, cv::Point center, double radius, cv::Mat& slice
 	cv::warpAffine(image, slice, M, cv::Size(croppedSize, croppedSize));
 }
 
+int getMaxXY(std::vector<cv::Point>& contour)
+{
+	int maxI = 0;
+	double maxXY = 0;
+	for (int i = 0; i < contour.size(); i++)
+	{
+		double XY = contour[i].x + contour[i].y;
+		if (XY > maxXY)
+		{
+			maxI = i;
+			maxXY = XY;
+		}
+	}
+	return maxI;
+}
+
 void sliceTriangle(cv::Mat& image, std::vector<cv::Point>& contour, cv::Mat& slice)
 {
-	//TODO sort by angle
-	
+	int max = getMaxXY(contour);
+
 	cv::Mat M = cv::getAffineTransform(
 			std::vector<cv::Point2f>{
-				contour[0],
-				contour[1],
-				contour[2]
+				contour[(0+max) % 3],
+				contour[(1+max) % 3],
+				contour[(2+max) % 3]
 			},
 			std::vector<cv::Point2f>{
+				{(float)croppedSize, (float)croppedSize},
 				{0, (float)croppedSize},
 				{(float)croppedSize / 2, 0},
-				{(float)croppedSize, (float)croppedSize},
 			}
 	);
 
@@ -113,20 +129,20 @@ void sliceTriangle(cv::Mat& image, std::vector<cv::Point>& contour, cv::Mat& sli
 
 void sliceQuadrangle(cv::Mat& image, std::vector<cv::Point>& contour, cv::Mat& slice)
 {
-	//TODO sort by angle
-	
+	int max = getMaxXY(contour);
+
 	cv::Mat M = cv::getPerspectiveTransform(
 			std::vector<cv::Point2f>{
-				contour[0],
-				contour[1],
-				contour[2],
-				contour[3]
+				contour[(0+max) % 4],
+				contour[(1+max) % 4],
+				contour[(2+max) % 4],
+				contour[(3+max) % 4]
 			},
 			std::vector<cv::Point2f>{
-				{0, 0},
-				{(float)croppedSize, 0},
-				{(float)croppedSize, (float)croppedSize},
 				{0, (float)croppedSize},
+				{(float)croppedSize, (float)croppedSize},
+				{(float)croppedSize, 0},
+				{0, 0},
 			}
 	);
 
@@ -149,7 +165,7 @@ int main()
 	cv::extractChannel(hsv, sat, 1);
 	
 	cv::inRange(sat, minSat, 255, sat);
-	//cv::imshow("Saturation", sat);
+	cv::imshow("Saturation", sat);
 
 	std::vector<std::vector<cv::Point> > contours;
     findContours(sat, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE );
