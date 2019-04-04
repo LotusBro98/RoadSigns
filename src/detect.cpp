@@ -2,6 +2,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <string>
+#include <dirent.h>
 
 void Sobel3(cv::Mat& src, cv::Mat& dst)
 {
@@ -29,7 +30,7 @@ void Sobel3(cv::Mat& src, cv::Mat& dst)
 }
 
 int blurSize = 3;
-int minSat = 200;
+int minSat = 180;
 double minContourArea = 200;
 double contourApproxEpsInPeri = 0.1;
 double minCircRatio = 0.9;
@@ -139,10 +140,10 @@ void sliceQuadrangle(cv::Mat& image, std::vector<cv::Point>& contour, cv::Mat& s
 				contour[(3+max) % 4]
 			},
 			std::vector<cv::Point2f>{
-				{0, (float)croppedSize},
 				{(float)croppedSize, (float)croppedSize},
-				{(float)croppedSize, 0},
+				{0, (float)croppedSize},
 				{0, 0},
+				{(float)croppedSize, 0},
 			}
 	);
 
@@ -154,55 +155,70 @@ int main()
 {
 	int sliceI = 0;
 
-	cv::Mat image = cv::imread("../images/371137fcbfdec57c7fe93fb7e711319c.jpg");
-	cv::Mat imageDisp;
-	image.copyTo(imageDisp);
+	DIR* dir = opendir("../images");
+	struct dirent *ent;
 
-	cv::Mat hsv;
-	cv::Mat sat;
-	cv::GaussianBlur(image, image, cv::Size(blurSize, blurSize), 1);
-	cv::cvtColor(image, hsv, cv::COLOR_BGR2HSV);
-	cv::extractChannel(hsv, sat, 1);
-	
-	cv::inRange(sat, minSat, 255, sat);
-	cv::imshow("Saturation", sat);
-
-	std::vector<std::vector<cv::Point> > contours;
-    findContours(sat, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE );
-	std::vector<std::vector<cv::Point> >hull( contours.size() );
-    for( int i = 0; i < contours.size(); i++ )
-    {
-		std::vector<cv::Point> contour = contours[i];
-		cv::Point center;
-		double radius;
-
-		cv::Mat slice;
-    	
-		int type = processContour(contour, center, radius);
-		if (type == CONTOUR_OTHER)
+	while ((ent = readdir(dir)) != NULL)
+	{
+		std::string path = std::string("../images/") + ent->d_name;
+		if (strcmp(ent->d_name, "..") == 0 || strcmp(ent->d_name, ".") == 0)
 			continue;
-		else if (type == CONTOUR_CIRCLE) {
-			cv::circle(imageDisp, center, radius, cv::Scalar(0, 255, 0), 3);
-			sliceCircle(image, center, radius, slice);
 
-		}
-		else if (type == CONTOUR_TRIANGLE)
+		std::cout << path << "\n";
+
+		cv::Mat image = cv::imread(path);
+		cv::Mat imageDisp;
+		image.copyTo(imageDisp);
+
+		cv::Mat hsv;
+		cv::Mat sat;
+		cv::GaussianBlur(image, image, cv::Size(blurSize, blurSize), 1);
+		cv::cvtColor(image, hsv, cv::COLOR_BGR2HSV);
+		cv::extractChannel(hsv, sat, 1);
+		
+		cv::inRange(sat, minSat, 255, sat);
+		cv::imshow("Saturation", sat);
+
+		std::vector<std::vector<cv::Point> > contours;
+		findContours(sat, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE );
+		std::vector<std::vector<cv::Point> >hull( contours.size() );
+		for( int i = 0; i < contours.size(); i++ )
 		{
-			cv::polylines(imageDisp, contour, true, cv::Scalar(0, 255, 0) , 3);
-			sliceTriangle(image, contour, slice);
-		}
-		else if (type == CONTOUR_QUADRANGLE)
-		{
-			cv::polylines(imageDisp, contour, true, cv::Scalar(0, 255, 0) , 3);
-			sliceQuadrangle(image, contour, slice);
+			std::vector<cv::Point> contour = contours[i];
+			cv::Point center;
+			double radius;
+
+			cv::Mat slice;
+			
+			int type = processContour(contour, center, radius);
+			if (type == CONTOUR_OTHER)
+				continue;
+			else if (type == CONTOUR_CIRCLE) {
+				cv::circle(imageDisp, center, radius, cv::Scalar(0, 100, 255), 3);
+				sliceCircle(image, center, radius, slice);
+
+			}
+			else if (type == CONTOUR_TRIANGLE)
+			{
+				cv::polylines(imageDisp, contour, true, cv::Scalar(0, 255, 0) , 3);
+				sliceTriangle(image, contour, slice);
+			}
+			else if (type == CONTOUR_QUADRANGLE)
+			{
+				cv::polylines(imageDisp, contour, true, cv::Scalar(255, 100, 0) , 3);
+				sliceQuadrangle(image, contour, slice);
+			}
+
+			//cv::imshow("Slice " + std::to_string(sliceI), slice);
+			sliceI++;
+
+			cv::imwrite("../dataset/unsorted/" + std::to_string(sliceI) + ".jpg", slice);
 		}
 
-		cv::imshow("Slice " + std::to_string(sliceI), slice);
-		sliceI++;
-    }
+		cv::imshow("Image", imageDisp);
+		cv::waitKey();
 
-	cv::imshow("Image", imageDisp);
-	cv::waitKey();
+	}
 
 	return 0;
 }
