@@ -97,6 +97,6 @@ print('outputs: ', [output.op.name for output in model.outputs])
 
 model.save("model.h5", overwrite=True, include_optimizer=False)
 
-os.system("python keras_to_tensorflow/keras_to_tensorflow.py --input_model=\"./model.h5\" --output_model=\"./model.pb\"")
+os.system("python keras_to_tensorflow.py --input_model=\"./model.h5\" --output_model=\"./model.pb\"")
 
 ####################################################
